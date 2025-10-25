@@ -1,0 +1,65 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using System.Net.Http.Json
+@inject IJSRuntime JS
+
+<PageTitle>Home</PageTitle>
+
+<h1>NLP-GraphStructure-Blazor</h1>
+
+<textarea @bind="request.prompt" rows="4" cols="80" placeholder="Input your simple text of graph to convert it"></textarea>
+<br />
+<button class="btn btn-primary" type="button" @onclick="SendAsync" disabled="@IsLoading">
+    @(IsLoading ? "Processing..." : "Send")
+</button>
+
+@if (Respone != null)
+{
+    <div style="margin-top: 1em;">
+        <b>Response:</b>
+        <p>@Respone</p>
+    </div>
+}
+
+@code {
+    private Request request = new Request();
+    private string? Respone;
+    private bool IsLoading = false;
+
+    class Request { public string prompt { get; set; } = ""; }
+    class Reply { public string response { get; set; } = ""; }
+
+    // [Inject]
+    // private HttpClient Http { get; set; } = default!;
+
+    private async Task SendAsync()
+    {
+        Console.WriteLine("SEND_ASYNC: CLICKED");
+        await JS.InvokeVoidAsync("console.log", "SEND_ASYNC: CLICKED");
+        if (string.IsNullOrWhiteSpace(request.prompt)) return;
+
+        IsLoading = true;
+        Respone = null;
+        StateHasChanged();
+
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            var req = new Request { prompt = request.prompt };
+            var res = await client.PostAsJsonAsync("http://127.0.0.1:8000/generate", req);
+            var result = await res.Content.ReadFromJsonAsync<Reply>();
+            Respone = result?.response ?? "(no response)";
+            Console.WriteLine($"Response: {Respone}");
+        }
+        catch (Exception e)
+        {
+            Respone = $"Error: {e.Message}";
+        }
+        finally
+        {
+            request.prompt = "";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+}
